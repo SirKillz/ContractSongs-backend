@@ -1,0 +1,9 @@
+fastapi
+httpx
+mangum
+uvicorn
+python-dotenv
+hatchling
+SQLAlchemy
+psycopg[binary]
+alembic

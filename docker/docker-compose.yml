@@ -1,0 +1,41 @@
+name: fastapi-template
+
+services:
+  backend:
+    container_name: fastapi-app
+    build:
+      context: "../"
+      dockerfile: "./docker/Dockerfile.app"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - "../.env.dev"
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - "../:/app"
+
+# Automatically creates a database with the with the name supplied via the .env
+  db:
+    container_name: postgres-db
+    build:
+      context: "./"
+      dockerfile: "./Dockerfile.db"
+    env_file:
+      - "../.env.dev"
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  db_data:
+    name: fastapi_template_db_data
