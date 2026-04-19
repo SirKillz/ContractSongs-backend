@@ -1,8 +1,8 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class SpotifyApiKeys(BaseModel):
+class ReadSpotifyApiKeys(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -10,4 +10,13 @@ class SpotifyApiKeys(BaseModel):
     token_type: str
     scope: str
     access_token_expires_at: datetime
+    refresh_token: str
+
+class CreateSpotifyApiKeys(BaseModel):
+    access_token: str
+    token_type: str
+    scope: str
+    access_token_expires_at: str = Field(
+        examples=["2026-04-19T18:25:43Z"]
+    )
     refresh_token: str
