@@ -37,6 +37,12 @@ async def create_api_keys(
 ):
     logger.info(f"[User: {current_user.username or current_user.sub}] -  Received Request at POST: /api/v1/api-keys")
 
+    # Check if a token pair already exists
+    stmt = select(SpotifyApiTokens).where(SpotifyApiTokens.id == 1)
+    result = db.execute(stmt).scalar_one_or_none()
+    if result:
+        raise HTTPException(status_code=409, detail="Spotify keys already exist, please update existing")
+
     # Convert access_token_expires_at from str -> datetime
     expires_at = parse_str_to_datetime(api_key_data.access_token_expires_at)
 
