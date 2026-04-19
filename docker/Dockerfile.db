@@ -1,0 +1,6 @@
+FROM postgres:16
+
+# Runtime configuration is supplied by docker-compose from .env.dev.
+# This image stays generic so credentials are not baked into the build.
+
+EXPOSE 5432
