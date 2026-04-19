@@ -1,4 +1,4 @@
-name: fastapi-template
+name: contract-songs-backend
 
 services:
   backend:
