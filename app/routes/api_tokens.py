@@ -42,8 +42,8 @@ async def get_spotify_tokens_with_code(code: str):
 
     try:
         spotify_tokens = request_tokens_with_code(code)
-        expires_at = spotify_tokens.get("expires_at")
-        expiration_timestamp = get_token_expiration(expires_at)
+        expires_in = spotify_tokens.get("expires_in")
+        expiration_timestamp = get_token_expiration(expires_in)
         return {
             "access_token": spotify_tokens.get("access_token"),
             "token_type": spotify_tokens.get("token_type"),
