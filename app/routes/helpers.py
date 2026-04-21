@@ -28,7 +28,7 @@ def parse_datetime_to_str(dt: datetime) -> str:
 
 from datetime import datetime, timezone, timedelta
 
-def get_token_expiration(seconds: int) -> datetime:
+def get_new_access_token_expiration(seconds: int) -> datetime:
     """
     Returns current UTC time + `seconds` as ISO 8601 string with 'Z'
     """
