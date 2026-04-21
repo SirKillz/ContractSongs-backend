@@ -30,7 +30,8 @@ def _get_b64_encoded_auth_string():
 def request_tokens_with_code(code: str) -> Dict:
     """
     Used to get the initial access token after the user logs in and is redirected back to the App
-    User must navigate to: https://accounts.spotify.com/authorize?client_id=400ccbc311e24c878036fc6821ec6e98&response_type=code&redirect_uri=http://127.0.0.1:3000&scope=user-read-currently-playing%20user-modify-playback-state
+    User must navigate to: 
+    https://accounts.spotify.com/authorize?client_id=400ccbc311e24c878036fc6821ec6e98&response_type=code&redirect_uri=http://127.0.0.1:3000&scope=user-read-currently-playing%20user-modify-playback-state%20playlist-read-private
     """
     url = "https://accounts.spotify.com/api/token"
     redirect_uri = os.getenv("SPOTIFY_APP_REDIRECT_URI")
