@@ -5,7 +5,7 @@ from fastapi import APIRouter, Security, Depends, HTTPException
 from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
-from app.database.database import get_db
+from app.database.session_factory import get_db
 from app.database.models import SpotifyApiTokens
 from app.services.spotify.session import request_token_via_refresh
 from app.routes.helpers import get_new_access_token_expiration

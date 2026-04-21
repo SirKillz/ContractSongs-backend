@@ -10,7 +10,7 @@ try:
 except ImportError:
     pass
 
-from app.database.database import Base
+from app.database.session_factory import Base
 from app.database import models
 
 config = context.config
