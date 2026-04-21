@@ -24,3 +24,9 @@ class SpotifyClient:
     
     async def resume_playback(self):
         return await self.session.put(path="/me/player/play")
+    
+    async def get_current_users_playlists(self) -> dict:
+        """
+        Get the current authorized user's playlists
+        """
+        return await self.session.get("/me/playlists")
