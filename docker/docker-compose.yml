@@ -38,4 +38,4 @@ services:
 
 volumes:
   db_data:
-    name: fastapi_template_db_data
+    name: contract_song_db_data
