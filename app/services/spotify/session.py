@@ -15,7 +15,7 @@ def _get_b64_encoded_auth_string():
     auth_string = f"{CLIENT_ID}:{CLIENT_SECRET}"
     return base64.b64encode(auth_string.encode()).decode()
 
-def request_initial_tokens_with_code(code: str) -> Response:
+def request_tokens_with_code(code: str) -> Dict:
     """
     Used to get the initial access token after the user logs in and is redirected back to the App
     User must navigate to: https://accounts.spotify.com/authorize?client_id=400ccbc311e24c878036fc6821ec6e98&response_type=code&redirect_uri=http://127.0.0.1:3000&scope=user-read-currently-playing%20user-modify-playback-state

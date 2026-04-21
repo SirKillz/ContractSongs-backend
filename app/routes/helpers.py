@@ -25,3 +25,14 @@ def parse_datetime_to_str(dt: datetime) -> str:
 
     # Convert to ISO string and replace +00:00 with Z
     return dt.isoformat().replace("+00:00", "Z")
+
+from datetime import datetime, timezone, timedelta
+
+def get_token_expiration(seconds: int) -> datetime:
+    """
+    Returns current UTC time + `seconds` as ISO 8601 string with 'Z'
+    """
+
+    dt = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+
+    return dt
