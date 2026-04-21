@@ -33,6 +33,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(test_router)
 app.include_router(api_key_router)
 app.include_router(spotify_router)
+app.include_router(session_router)
