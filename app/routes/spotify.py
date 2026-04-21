@@ -9,9 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.database.session_factory import SessionLocal
 from app.database.models import SpotifyApiTokens
+
 from app.services.spotify.client import SpotifyClient
-from app.services.spotify.types import SpotifyTokenSnapshot
+from app.services.spotify.types import SpotifyTokenSnapshot, SpotifyPlaylist, SpotifySong
 from app.services.spotify.session import ApiSession, request_token_via_refresh
+from app.schemas.spotify import GetPlaylists
+
 from app.routes.helpers import get_new_access_token_expiration
 
 
@@ -132,3 +135,32 @@ async def stop_contract_song_service():
     global MONITOR_RUNNING
     MONITOR_RUNNING = False
     return {"stopping": True}
+
+@spotify_router.get("/playlists", response_model=GetPlaylists)
+async def get_playlists():
+
+    # Initial token handling on the backend
+    current_tokens = get_spotify_api_tokens_from_db()
+    if access_token_expired(current_tokens.access_token_expires_at):
+        current_tokens = refresh_access_token(current_tokens)
+
+    api_session = ApiSession(
+        base_url=os.getenv("SPOTIFY_BASE_API_URL"),
+        access_token=current_tokens.access_token
+    )
+    client = SpotifyClient(api_session)
+    raw_playlists_data = await client.get_current_users_playlists()
+    raw_playlists: list[dict] = raw_playlists_data.get("items")
+
+    playlists = []
+    for playlist in raw_playlists:
+        pl = SpotifyPlaylist(
+            id=playlist.get("id"),
+            name=playlist.get("name"),
+            songs=[]
+        )
+        playlists.append(pl)
+    return {
+        "count": len(playlist),
+        "playlists": playlists
+    }
