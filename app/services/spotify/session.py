@@ -77,7 +77,7 @@ def request_tokens_with_code(code: str) -> Dict:
             status_code=502,
         ) from exc
 
-def request_token_via_refresh(refresh_token: str) -> Response:
+def request_token_via_refresh(refresh_token: str) -> dict:
     url = "https://accounts.spotify.com/api/token"
     b64_encoded_auth = _get_b64_encoded_auth_string()
     headers = {

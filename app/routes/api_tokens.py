@@ -11,7 +11,7 @@ from app.database.database import get_db
 from app.database.models import SpotifyApiTokens
 
 from app.schemas.api_keys import ReadSpotifyApiKeys, CreateSpotifyApiKeys, GetSpotifyApiTokens
-from app.routes.helpers import parse_str_to_datetime, get_token_expiration
+from app.routes.helpers import parse_str_to_datetime, get_new_access_token_expiration
 
 from app.services.spotify.session import request_tokens_with_code, SpotifyTokenRequestError
 
@@ -52,7 +52,7 @@ async def get_spotify_tokens_with_code(code: str):
             )
 
         expires_in = spotify_tokens.get("expires_in")
-        expiration_timestamp = get_token_expiration(expires_in)
+        expiration_timestamp = get_new_access_token_expiration(expires_in)
         return {
             "access_token": spotify_tokens.get("access_token"),
             "token_type": spotify_tokens.get("token_type"),
