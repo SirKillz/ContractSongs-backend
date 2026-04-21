@@ -13,7 +13,7 @@ from app.database.models import SpotifyApiTokens
 from app.schemas.api_keys import ReadSpotifyApiKeys, CreateSpotifyApiKeys, GetSpotifyApiTokens
 from app.routes.helpers import parse_str_to_datetime, get_token_expiration
 
-from app.services.spotify.session import request_tokens_with_code
+from app.services.spotify.session import request_tokens_with_code, SpotifyTokenRequestError
 
 api_key_router = APIRouter(prefix="/api/v1/api-keys", tags=["API KEY Management"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
@@ -42,6 +42,15 @@ async def get_spotify_tokens_with_code(code: str):
 
     try:
         spotify_tokens = request_tokens_with_code(code)
+        required_fields = ("access_token", "token_type", "scope", "expires_in", "refresh_token")
+        missing_fields = [field for field in required_fields if spotify_tokens.get(field) is None]
+        if missing_fields:
+            logger.error("Spotify token response missing fields: %s", ", ".join(missing_fields))
+            raise HTTPException(
+                status_code=502,
+                detail=f"Spotify token response missing fields: {', '.join(missing_fields)}",
+            )
+
         expires_in = spotify_tokens.get("expires_in")
         expiration_timestamp = get_token_expiration(expires_in)
         return {
@@ -51,8 +60,12 @@ async def get_spotify_tokens_with_code(code: str):
             "access_token_expires_at": expiration_timestamp,
             "refresh_token": spotify_tokens.get("refresh_token")
         }
-    except:
-        raise HTTPException(status_code=500, detail="Error retrieving Spotify Tokens")
+    except SpotifyTokenRequestError as exc:
+        logger.error("Spotify token request failed: %s", exc.detail)
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except ValueError as exc:
+        logger.error("Spotify token response validation failed: %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 
@@ -86,4 +99,3 @@ async def create_api_keys(
     db.refresh(spotify_api_token_pair)
 
     return spotify_api_token_pair
-

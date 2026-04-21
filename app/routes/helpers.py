@@ -32,6 +32,16 @@ def get_token_expiration(seconds: int) -> datetime:
     """
     Returns current UTC time + `seconds` as ISO 8601 string with 'Z'
     """
+    if seconds is None:
+        raise ValueError("Spotify token response is missing expires_in")
+
+    try:
+        seconds = int(seconds)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Spotify token response contains an invalid expires_in") from exc
+
+    if seconds <= 0:
+        raise ValueError("Spotify token response contains a non-positive expires_in")
 
     dt = datetime.now(timezone.utc) + timedelta(seconds=seconds)
 
