@@ -11,7 +11,19 @@ from httpx import Response
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
+
+class SpotifyTokenRequestError(Exception):
+    def __init__(self, detail: str, status_code: int = 502) -> None:
+        super().__init__(detail)
+        self.detail = detail
+        self.status_code = status_code
+
 def _get_b64_encoded_auth_string():
+    if not CLIENT_ID or not CLIENT_SECRET:
+        raise SpotifyTokenRequestError(
+            "Spotify client credentials are not configured",
+            status_code=500,
+        )
     auth_string = f"{CLIENT_ID}:{CLIENT_SECRET}"
     return base64.b64encode(auth_string.encode()).decode()
 
@@ -21,6 +33,13 @@ def request_tokens_with_code(code: str) -> Dict:
     User must navigate to: https://accounts.spotify.com/authorize?client_id=400ccbc311e24c878036fc6821ec6e98&response_type=code&redirect_uri=http://127.0.0.1:3000&scope=user-read-currently-playing%20user-modify-playback-state
     """
     url = "https://accounts.spotify.com/api/token"
+    redirect_uri = os.getenv("SPOTIFY_APP_REDIRECT_URI")
+
+    if not redirect_uri:
+        raise SpotifyTokenRequestError(
+            "Spotify redirect URI is not configured",
+            status_code=500,
+        )
 
     b64_encoded_auth = _get_b64_encoded_auth_string()
     headers = {
@@ -30,14 +49,33 @@ def request_tokens_with_code(code: str) -> Dict:
     data = {
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": os.getenv("SPOTIFY_APP_REDIRECT_URI")
+        "redirect_uri": redirect_uri
     }
     try:
         response = httpx.post(url, headers=headers, data=data)
         response.raise_for_status()
         return response.json()
     except httpx.HTTPStatusError as exc:
-            print(f"Error response {exc.response.status_code} while requesting {exc.request.url}")
+        try:
+            payload = exc.response.json()
+        except ValueError:
+            payload = exc.response.text
+
+        if exc.response.status_code in (400, 401):
+            raise SpotifyTokenRequestError(
+                f"Spotify rejected the token request: {payload}",
+                status_code=exc.response.status_code,
+            ) from exc
+
+        raise SpotifyTokenRequestError(
+            f"Spotify token endpoint failed: {payload}",
+            status_code=502,
+        ) from exc
+    except httpx.RequestError as exc:
+        raise SpotifyTokenRequestError(
+            "Could not reach Spotify token endpoint",
+            status_code=502,
+        ) from exc
 
 def request_token_via_refresh(refresh_token: str) -> Response:
     url = "https://accounts.spotify.com/api/token"
@@ -55,7 +93,26 @@ def request_token_via_refresh(refresh_token: str) -> Response:
         response.raise_for_status()
         return response.json()
     except httpx.HTTPStatusError as exc:
-            print(f"Error response {exc.response.status_code} while requesting {exc.request.url}")
+        try:
+            payload = exc.response.json()
+        except ValueError:
+            payload = exc.response.text
+
+        if exc.response.status_code in (400, 401):
+            raise SpotifyTokenRequestError(
+                f"Spotify rejected the refresh request: {payload}",
+                status_code=exc.response.status_code,
+            ) from exc
+
+        raise SpotifyTokenRequestError(
+            f"Spotify refresh endpoint failed: {payload}",
+            status_code=502,
+        ) from exc
+    except httpx.RequestError as exc:
+        raise SpotifyTokenRequestError(
+            "Could not reach Spotify token endpoint",
+            status_code=502,
+        ) from exc
 
 
 class ApiSession:
