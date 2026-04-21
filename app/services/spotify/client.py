@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv(".env")
 
-from session import ApiSession
+from app.services.spotify.session import ApiSession
 
 class SpotifyClient:
     def __init__(self, session: ApiSession) -> None:
