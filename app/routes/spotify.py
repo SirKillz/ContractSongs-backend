@@ -2,7 +2,6 @@ import os
 import asyncio
 import logging
 from datetime import datetime, timezone
-from dataclasses import dataclass
 
 from fastapi import APIRouter
 from sqlalchemy import select, update
@@ -10,19 +9,14 @@ from sqlalchemy.orm import Session
 
 from app.database.session_factory import SessionLocal
 from app.database.models import SpotifyApiTokens
+from app.services.spotify.client import SpotifyClient
+from app.services.spotify.types import SpotifyTokenSnapshot
 from app.services.spotify.session import ApiSession, request_token_via_refresh
 from app.routes.helpers import get_new_access_token_expiration
-from app.services.spotify.client import SpotifyClient
+
 
 spotify_router = APIRouter(prefix="/api/v1/spotify", tags=["Spotify"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
-
-
-@dataclass
-class SpotifyTokenSnapshot:
-    access_token: str
-    access_token_expires_at: datetime
-    refresh_token: str
 
 # Helper function to return Spotify API tokens stored in DB
 def get_spotify_api_tokens_from_db() -> SpotifyTokenSnapshot:
