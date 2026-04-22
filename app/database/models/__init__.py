@@ -2,3 +2,4 @@
 
 from app.database.models.api_token import *
 from app.database.models.session import *
+from app.database.models.players import *
