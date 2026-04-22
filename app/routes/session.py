@@ -31,7 +31,7 @@ async def get_session(session_id: int, db: Session = Depends(get_db)):
     return result
 
 @session_router.get("/{session_id}/players", response_model=list[ReadPlayer])
-async def get_session_players(session_id, db: Session = Depends(get_db)):
+async def get_session_players(session_id: int, db: Session = Depends(get_db)):
 
     logger.info(f"Received Request at GET: /api/v1/session{session_id}/players")
 
