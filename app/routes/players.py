@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database.session_factory import get_db
 from app.database.models import Player
 
-from app.schemas.player import ReadPlayer, CreatePlayer
+from app.schemas.player import ReadPlayer, CreatePlayer, UpdatePlayer
 from app.routes.helpers import parse_str_to_datetime, get_new_access_token_expiration
 
 players_router = APIRouter(prefix="/api/v1/session/{session_id}/players", tags=["Players"])
@@ -37,7 +37,7 @@ async def create_player(
     player_data: CreatePlayer,
     db: Session = Depends(get_db), 
 ):
-    logger.info(f"Received Request at POST: /api/v1/session")
+    logger.info(f"Received Request at POST: /api/v1/players")
 
     # Dump Payload
     payload = player_data.model_dump()
@@ -49,3 +49,23 @@ async def create_player(
     db.refresh(player)
 
     return player
+
+
+@players_router.put("/{player_id}", response_model=ReadPlayer)
+async def update_player(session_id: int, player_id: int, player_data: UpdatePlayer, db: Session = Depends(get_db)):
+    
+    logger.info(f"Received Request at PUT: /api/v1/players/{player_id}")
+
+    stmt = select(Player).where(Player.id == player_id and Player.session_id == session_id)
+    player = db.execute(stmt).scalar_one_or_none()
+
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player with id: {player_id} not found")
+    
+    payload = player_data.model_dump(exclude_unset=True)
+
+    for key, value in payload.items():
+        setattr(player, key, value)
+    db.commit()
+    return player
+    

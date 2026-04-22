@@ -12,3 +12,8 @@ class ReadPlayer(BaseModel):
 class CreatePlayer(BaseModel):
     
     name: str
+
+class UpdatePlayer(BaseModel):
+    
+    name: str | None
+    # add songs later
