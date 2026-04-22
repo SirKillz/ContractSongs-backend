@@ -11,5 +11,4 @@ class ReadPlayer(BaseModel):
 
 class CreatePlayer(BaseModel):
     
-    session_id: int
     name: str

@@ -31,7 +31,7 @@ async def get_player(session_id: int, player_id: int, db: Session = Depends(get_
 
 
 
-@players_router.post("/players", response_model=ReadPlayer)
+@players_router.post("", response_model=ReadPlayer)
 async def create_player(
     session_id: int,
     player_data: CreatePlayer,
@@ -41,6 +41,7 @@ async def create_player(
 
     # Dump Payload
     payload = player_data.model_dump()
+    payload['session_id'] = session_id
 
     player = Player(**payload)
     db.add(player)
