@@ -36,3 +36,4 @@ app.add_middleware(
 app.include_router(api_key_router)
 app.include_router(spotify_router)
 app.include_router(session_router)
+app.include_router(players_router)
