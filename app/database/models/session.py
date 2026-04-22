@@ -20,6 +20,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.session_factory import Base
 
+from app.database.models.players import Player
+
 
 class ContractSongSession(Base):
     __tablename__ = "sessions"
@@ -31,4 +33,5 @@ class ContractSongSession(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False
-    ) 
+    )
+    players: Mapped[list[Player]] = relationship(Player)
