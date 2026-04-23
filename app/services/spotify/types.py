@@ -18,7 +18,7 @@ class SpotifySong:
     """
     A small subset of relevant data for capturing Spotify Songs
     """
-    id: str
+    id: str | None
     name: str
     artist: str
 

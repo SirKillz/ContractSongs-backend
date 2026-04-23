@@ -23,6 +23,9 @@ class SpotifyClient:
         return await self.session.put(path="/me/player/pause")
     
     async def resume_playback(self):
+        """
+        Resumes or starts playback
+        """
         return await self.session.put(path="/me/player/play")
     
     async def get_current_users_playlists(self) -> dict:
@@ -30,3 +33,9 @@ class SpotifyClient:
         Get the current authorized user's playlists
         """
         return await self.session.get("/me/playlists")
+    
+    async def get_playlist_songs(self, playlist_id: str, params: dict | None):
+        """
+        Get the items of a given playlist
+        """
+        return await self.session.get(f"/playlists/{playlist_id}/items", params=params if params else None)

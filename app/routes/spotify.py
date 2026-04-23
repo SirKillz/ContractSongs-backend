@@ -164,3 +164,57 @@ async def get_playlists():
         "count": len(playlist),
         "playlists": playlists
     }
+
+@spotify_router.get("/playlists/{playlist_id}/songs", response_model=list[SpotifySong])
+async def get_playlist_songs(playlist_id: str):
+
+    # Initial token handling on the backend
+    current_tokens = get_spotify_api_tokens_from_db()
+    if access_token_expired(current_tokens.access_token_expires_at):
+        current_tokens = refresh_access_token(current_tokens)
+
+    session = ApiSession(base_url=os.getenv("SPOTIFY_BASE_API_URL"), access_token=current_tokens.access_token)
+    client = SpotifyClient(session)
+
+    # Limit Returned Data
+    fields=f"total,limit,items(item(id,name,artists))"
+    params = {
+        "fields": fields,
+        "limit": 100,
+        "offset": 0
+    }
+
+    full_playlist_songs = []
+    total_songs_in_playlist = 0 # initial set
+
+    while (len(full_playlist_songs) == 0 or len(full_playlist_songs) < total_songs_in_playlist):
+        
+        raw_playlist_items = await client.get_playlist_songs(playlist_id, params=params)
+        total_songs_in_playlist = raw_playlist_items.get("total")
+        
+        # Break loop if there are no songs in the playlist
+        if total_songs_in_playlist == 0:
+            break
+        
+        for item in raw_playlist_items.get("items"):
+            item = item.get("item")
+            artists = item.get("artists")
+            if len(artists) > 0:
+                artist = artists[0].get("name")
+            else:
+                artist = ""
+
+            id = item.get("id")
+            name = item.get("name")
+
+            playlist_song = {
+                "id": id,
+                "name": name,
+                "artist": artist 
+            }
+            full_playlist_songs.append(playlist_song)
+        
+        params['offset'] = len(full_playlist_songs)
+        
+        
+    return full_playlist_songs
