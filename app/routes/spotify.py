@@ -162,7 +162,7 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max
                         "song_name": song_name
                     }
                 )
-                await asyncio.sleep(5)
+                await asyncio.sleep(7)
                 await client.resume_playback()
             else:
                 logger.info("No matching players")
