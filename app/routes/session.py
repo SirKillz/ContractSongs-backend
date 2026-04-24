@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.sse import EventSourceResponse
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -27,10 +27,10 @@ async def yield_contract_song_events():
         # Wakes as soon as there is an item within the Queue
         event = await contract_song_queue.get()
         logger.info(f"SSE route received event from queue: {event}")
-        yield {
-            "event": event['type'],
-            "data": event
-        }
+        yield ServerSentEvent(
+            event=event["type"],
+            data=event,
+        )
 
 @session_router.get("/{session_id}", response_model=ReadSession)
 async def get_session(session_id: int, db: Session = Depends(get_db)):
