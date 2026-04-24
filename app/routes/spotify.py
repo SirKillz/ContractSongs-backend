@@ -149,20 +149,33 @@ async def get_playlists():
         access_token=current_tokens.access_token
     )
     client = SpotifyClient(api_session)
-    raw_playlists_data = await client.get_current_users_playlists()
-    raw_playlists: list[dict] = raw_playlists_data.get("items")
 
-    playlists = []
-    for playlist in raw_playlists:
-        pl = SpotifyPlaylist(
-            id=playlist.get("id"),
-            name=playlist.get("name"),
-            songs=[]
-        )
-        playlists.append(pl)
+    # Params
+    params = {
+        "limit": 50,
+        "offset": 0
+    }
+
+    total_playlists = []
+    total_user_playlists = 0 # initially set at 0
+
+    while (len(total_playlists) == 0 or len(total_playlists) < total_user_playlists):
+        raw_playlists_data = await client.get_current_users_playlists(params=params)
+        total_user_playlists = raw_playlists_data.get("total")
+        raw_playlists: list[dict] = raw_playlists_data.get("items")
+
+        for playlist in raw_playlists:
+            pl = SpotifyPlaylist(
+                id=playlist.get("id"),
+                name=playlist.get("name"),
+                songs=[]
+            )
+            total_playlists.append(pl)
+
+        params['offset'] = len(total_playlists)
     return {
-        "count": len(playlist),
-        "playlists": playlists
+        "count": total_user_playlists,
+        "playlists": total_playlists
     }
 
 @spotify_router.get("/playlists/{playlist_id}/songs", response_model=list[SpotifySong])
