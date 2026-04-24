@@ -17,7 +17,20 @@ from app.services.contract_song_events import contract_song_queue
 session_router = APIRouter(prefix="/api/v1/session", tags=["Session"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
 
+@session_router.get("/contract-song-events", response_class=EventSourceResponse)
+async def yield_contract_song_events():
 
+    while True:
+        
+        # Waits and saves CPU
+        # Does not infinite loop
+        # Wakes as soon as there is an item within the Queue
+        event = await contract_song_queue.get()
+        logger.info(f"SSE route received event from queue: {event}")
+        yield {
+            "event": event['type'],
+            "data": event
+        }
 
 @session_router.get("/{session_id}", response_model=ReadSession)
 async def get_session(session_id: int, db: Session = Depends(get_db)):
@@ -63,17 +76,3 @@ async def create_session(
     db.refresh(contract_song_session)
 
     return contract_song_session
-
-@session_router.get("/contract-song-events", response_class=EventSourceResponse)
-async def yield_contract_song_events():
-
-    while True:
-        
-        # Waits and saves CPU
-        # Does not infinite loop
-        # Wakes as soon as there is an item within the Queue
-        event = await contract_song_queue.get()
-        yield {
-            "event": event['type'],
-            "data": event
-        }
