@@ -41,5 +41,5 @@ def write_polly_audio_file(polly_response: PollyResponse, output_filename: str):
     """
     audio_bytes = polly_response.AudioStream.read()
 
-    with open(f"contract_song_audio/{output_filename}.mp3", "wb") as f:
+    with open(f"contract-song-audio/{output_filename}.mp3", "wb") as f:
         f.write(audio_bytes)

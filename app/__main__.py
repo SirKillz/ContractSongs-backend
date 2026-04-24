@@ -28,7 +28,7 @@ app = FastAPI()
 handler = Mangum(app)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-AUDIO_DIR = BASE_DIR / "contract_song_audio"
+AUDIO_DIR = BASE_DIR / "contract-song-audio"
 
 AUDIO_DIR.mkdir(exist_ok=True)
 
