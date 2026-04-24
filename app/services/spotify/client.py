@@ -28,11 +28,11 @@ class SpotifyClient:
         """
         return await self.session.put(path="/me/player/play")
     
-    async def get_current_users_playlists(self) -> dict:
+    async def get_current_users_playlists(self, params: dict | None) -> dict:
         """
         Get the current authorized user's playlists
         """
-        return await self.session.get("/me/playlists")
+        return await self.session.get("/me/playlists", params=params if params else None)
     
     async def get_playlist_songs(self, playlist_id: str, params: dict | None):
         """
