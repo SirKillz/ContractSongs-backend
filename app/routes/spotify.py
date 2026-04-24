@@ -17,7 +17,7 @@ from app.schemas.spotify import GetPlaylists
 
 from app.routes.helpers import get_new_access_token_expiration
 
-from app.services.contract_song_events import publish_to_queue
+from app.services.contract_song_events import publish_to_queue, contract_song_queue
 
 
 spotify_router = APIRouter(prefix="/api/v1/spotify", tags=["Spotify"])
