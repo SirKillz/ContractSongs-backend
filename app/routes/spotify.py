@@ -8,7 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.database.session_factory import SessionLocal
-from app.database.models import SpotifyApiTokens
+from app.database.models import SpotifyApiTokens, ContractSongSession
 
 from app.services.spotify.client import SpotifyClient
 from app.services.spotify.types import SpotifyTokenSnapshot, SpotifyPlaylist, SpotifySong
@@ -79,11 +79,30 @@ def refresh_access_token(expired_tokens: SpotifyTokenSnapshot) -> SpotifyTokenSn
             refresh_token=expired_tokens.refresh_token,
         )
 
+def get_players_for_currently_playing_song(current_session_id: int, current_song_id: str, current_song_name: str) -> list[str]:
+    with SessionLocal() as db:
+        stmt = select(ContractSongSession).where(ContractSongSession.id == current_session_id)
+        contract_song_session = db.execute(stmt).scalar_one_or_none()
+        if not contract_song_session:
+            return # to do figure out how to handle this
+        
+        players_for_this_song = []
+        for player in contract_song_session.players:
+            for song in player.songs:
+                if song.get("id") == current_song_id or song.get("name") == current_song_name:
+                    player.contract_count += 1
+                    if player.name not in players_for_this_song:
+                        players_for_this_song.append(player.name)
+        db.commit()
+        return players_for_this_song
+
+
+
 # GLOBALS DEFINED FOR THE POLLING PROCESS
 MONITOR_TASK = None
 MONITOR_RUNNING = False
 
-async def spotify_poll_loop(polling_interval: float = 10.0, max_iterations: int | None = None):
+async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max_iterations: int | None = None):
 
     # Globals
     global MONITOR_TASK, MONITOR_RUNNING
@@ -106,8 +125,15 @@ async def spotify_poll_loop(polling_interval: float = 10.0, max_iterations: int 
     try:
         while MONITOR_RUNNING:
             current_track_data = await client.get_currently_playing_track()
+            song_id = current_track_data.get("item").get("id")
             song_name = current_track_data.get("item").get("name")
+
+            players_for_this_song = get_players_for_currently_playing_song(session_id, song_id, song_name)
             logger.info(f"The name of the currently playing song is: {song_name}")
+            if len(players_for_this_song) > 0:
+                logger.info(f"WE HAVE A CONTRACT SONG MATCH FOR {', '.join(players_for_this_song)}")
+            else:
+                logger.info("No matching players")
 
             iteration_count += 1
             if max_iterations is not None and iteration_count >= max_iterations:
@@ -121,17 +147,17 @@ async def spotify_poll_loop(polling_interval: float = 10.0, max_iterations: int 
         MONITOR_TASK = None
 
 
-@spotify_router.post("/start-contract-song-service")
-async def start_contract_song_service():
+@spotify_router.post("/session/{session_id}/start-contract-song-service")
+async def start_contract_song_service(session_id: int):
     global MONITOR_TASK
     if MONITOR_TASK is None:
-        MONITOR_TASK = asyncio.create_task(spotify_poll_loop())
+        MONITOR_TASK = asyncio.create_task(spotify_poll_loop(session_id))
         return {"started": True}
     return {"started": False, "reason": "already running"}
 
 
-@spotify_router.post("/stop-contract-song-service")
-async def stop_contract_song_service():
+@spotify_router.post("/session/{session_id}/stop-contract-song-service")
+async def stop_contract_song_service(session_id):
     global MONITOR_RUNNING
     MONITOR_RUNNING = False
     return {"stopping": True}
