@@ -88,11 +88,27 @@ def get_players_for_currently_playing_song(current_session_id: int, current_song
         
         players_for_this_song = []
         for player in contract_song_session.players:
+            updated_songs = []
             for song in player.songs:
-                if song.get("id") == current_song_id or song.get("name") == current_song_name:
+                # Current songs needs to NOT have already been contracted AND match the current song ID or Name
+                if (
+                    song.get("been_contracted") == False
+                    and (song.get("id") == current_song_id or song.get("name") == current_song_name)
+                ):
                     player.contract_count += 1
                     if player.name not in players_for_this_song:
                         players_for_this_song.append(player.name)
+                    
+                    # Update to indicate that the song has now been contracted so it gets skipped next time
+                    updated_songs.append({
+                        "id": song.get("id"),
+                        "name": song.get("name"),
+                        "artist": song.get("artist"),
+                        "been_contracted": True
+                    })
+                else:
+                    updated_songs.append(song)
+            player.songs = updated_songs
         db.commit()
         return players_for_this_song
 

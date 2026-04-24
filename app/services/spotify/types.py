@@ -21,6 +21,7 @@ class SpotifySong:
     id: str | None
     name: str
     artist: str
+    been_contracted: bool = False
 
 @dataclass
 class SpotifyPlaylist:
