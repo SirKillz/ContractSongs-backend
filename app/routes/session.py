@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.sse import EventSourceResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,7 @@ from app.database.models import ContractSongSession
 from app.schemas.session import ReadSession, CreateSession
 from app.schemas.player import ReadPlayer
 from app.routes.helpers import parse_str_to_datetime, get_new_access_token_expiration
+from app.services.contract_song_events import contract_song_queue
 
 session_router = APIRouter(prefix="/api/v1/session", tags=["Session"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
@@ -61,3 +63,17 @@ async def create_session(
     db.refresh(contract_song_session)
 
     return contract_song_session
+
+@session_router.get("/contract-song-events", response_class=EventSourceResponse)
+async def yield_contract_song_events():
+
+    while True:
+        
+        # Waits and saves CPU
+        # Does not infinite loop
+        # Wakes as soon as there is an item within the Queue
+        event = await contract_song_queue.get()
+        yield {
+            "event": event['type'],
+            "data": event
+        }
