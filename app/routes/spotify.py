@@ -17,6 +17,8 @@ from app.schemas.spotify import GetPlaylists
 
 from app.routes.helpers import get_new_access_token_expiration
 
+from app.services.contract_song_events import publish_to_queue
+
 
 spotify_router = APIRouter(prefix="/api/v1/spotify", tags=["Spotify"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
@@ -148,6 +150,15 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max
             logger.info(f"The name of the currently playing song is: {song_name}")
             if len(players_for_this_song) > 0:
                 logger.info(f"WE HAVE A CONTRACT SONG MATCH FOR {', '.join(players_for_this_song)}")
+                await publish_to_queue(event={
+                        "type": "contract_song",
+                        "session_id": session_id,
+                        "audio_url": "contract_song_audio/test-song-1-Nick.mp3",
+                        "player_names": players_for_this_song,
+                        "song_id": song_id,
+                        "song_name": song_name
+                    }
+                )
             else:
                 logger.info("No matching players")
 
