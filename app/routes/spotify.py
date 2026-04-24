@@ -153,7 +153,7 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max
                 await publish_to_queue(event={
                         "type": "contract_song",
                         "session_id": session_id,
-                        "audio_url": "contract_song_audio/test-song-1-Nick.mp3",
+                        "audio_url": "http://localhost:8000/contract-song-audio/test-song-1-Nick.mp3",
                         "player_names": players_for_this_song,
                         "song_id": song_id,
                         "song_name": song_name
