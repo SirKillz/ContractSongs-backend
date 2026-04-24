@@ -143,34 +143,35 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max
     try:
         while MONITOR_RUNNING:
             current_track_data = await client.get_currently_playing_track()
-            song_id = current_track_data.get("item").get("id")
-            song_name = current_track_data.get("item").get("name")
+            if current_track_data:
+                song_id = current_track_data.get("item").get("id")
+                song_name = current_track_data.get("item").get("name")
 
-            players_for_this_song = get_players_for_currently_playing_song(session_id, song_id, song_name)
-            logger.info(f"The name of the currently playing song is: {song_name}")
-            if len(players_for_this_song) > 0:
-                logger.info(f"WE HAVE A CONTRACT SONG MATCH FOR {', '.join(players_for_this_song)}")
+                players_for_this_song = get_players_for_currently_playing_song(session_id, song_id, song_name)
+                logger.info(f"The name of the currently playing song is: {song_name}")
+                if len(players_for_this_song) > 0:
+                    logger.info(f"WE HAVE A CONTRACT SONG MATCH FOR {', '.join(players_for_this_song)}")
 
-                # Pause the current track
-                await client.pause_playback()
-                await publish_to_queue(event={
-                        "type": "contract_song",
-                        "session_id": session_id,
-                        "audio_url": "http://localhost:8000/contract-song-audio/test-song-1-Nick.mp3",
-                        "player_names": players_for_this_song,
-                        "song_id": song_id,
-                        "song_name": song_name
-                    }
-                )
-                await asyncio.sleep(7)
-                await client.resume_playback()
-            else:
-                logger.info("No matching players")
+                    # Pause the current track
+                    await client.pause_playback()
+                    await publish_to_queue(event={
+                            "type": "contract_song",
+                            "session_id": session_id,
+                            "audio_url": "http://localhost:8000/contract-song-audio/test-song-1-Nick.mp3",
+                            "player_names": players_for_this_song,
+                            "song_id": song_id,
+                            "song_name": song_name
+                        }
+                    )
+                    await asyncio.sleep(7)
+                    await client.resume_playback()
+                else:
+                    logger.info("No matching players")
 
-            iteration_count += 1
-            if max_iterations is not None and iteration_count >= max_iterations:
-                MONITOR_RUNNING = False
-                break
+                iteration_count += 1
+                if max_iterations is not None and iteration_count >= max_iterations:
+                    MONITOR_RUNNING = False
+                    break
 
             await asyncio.sleep(polling_interval)
     finally:
