@@ -7,3 +7,4 @@ hatchling
 SQLAlchemy
 psycopg[binary]
 alembic
+boto3
