@@ -1,8 +1,10 @@
 import os
 import sys
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
@@ -24,6 +26,17 @@ if not logger.hasHandlers():
 
 app = FastAPI()
 handler = Mangum(app)
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+AUDIO_DIR = BASE_DIR / "contract_song_audio"
+
+AUDIO_DIR.mkdir(exist_ok=True)
+
+app.mount(
+    "/contract-song-audio",
+    StaticFiles(directory=AUDIO_DIR),
+    name="contract-song-audio",
+)
 
 app.add_middleware(
     CORSMiddleware,

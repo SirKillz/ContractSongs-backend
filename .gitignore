@@ -5,4 +5,4 @@
 .env.dev
 .env.prod
 /scripts
-/contract_song_audio
+/contract-song-audio
