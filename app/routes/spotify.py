@@ -114,7 +114,9 @@ def get_players_for_currently_playing_song(current_session_id: int, current_song
         db.commit()
         return players_for_this_song
 
-
+def calculate_next_polling_interval(player_progress_ms, song_length_ms) -> int:
+    ms_remaining = song_length_ms - player_progress_ms
+    return (ms_remaining + 1000) / 1000
 
 # GLOBALS DEFINED FOR THE POLLING PROCESS
 MONITOR_TASK = None
@@ -144,6 +146,10 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max
         while MONITOR_RUNNING:
             current_track_data = await client.get_currently_playing_track()
             if current_track_data:
+                player_progress_ms = current_track_data.get("progress_ms")
+                song_length_ms = current_track_data.get("item").get("duration_ms")
+                calculated_sleep_time = calculate_next_polling_interval(player_progress_ms, song_length_ms)
+
                 song_id = current_track_data.get("item").get("id")
                 song_name = current_track_data.get("item").get("name")
 
@@ -173,7 +179,11 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max
                     MONITOR_RUNNING = False
                     break
 
-            await asyncio.sleep(polling_interval)
+                logger.info(f"Sleeping for {calculated_sleep_time} seconds")
+                await asyncio.sleep(calculated_sleep_time)
+
+            else:
+                await asyncio.sleep(polling_interval)
     finally:
         await session.close()
         MONITOR_RUNNING = False
