@@ -6,3 +6,4 @@
 .env.prod
 /scripts
 /contract-song-audio-out
+.vscode
