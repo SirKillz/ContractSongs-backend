@@ -8,3 +8,5 @@ SQLAlchemy
 psycopg[binary]
 alembic
 boto3
+pydub
+audioop-lts
