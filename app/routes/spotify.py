@@ -18,7 +18,7 @@ from app.schemas.spotify import GetPlaylists
 from app.routes.helpers import get_new_access_token_expiration
 
 from app.services.contract_song_events import publish_to_queue
-from app.services.aws_polly import generate_polly_audio_file, write_polly_audio_file
+from app.services.aws_polly import generate_polly_audio_file, write_combined_audio_file
 
 spotify_router = APIRouter(prefix="/api/v1/spotify", tags=["Spotify"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
@@ -106,7 +106,7 @@ def get_players_for_currently_playing_song(current_session_id: int, current_song
                         "id": song.get("id"),
                         "name": song.get("name"),
                         "artist": song.get("artist"),
-                        "been_contracted": True
+                        "been_contracted": True # change later to prevent loops
                     })
                 else:
                     updated_songs.append(song)
@@ -187,14 +187,14 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 3.0, max_
                     text_alert_string = get_alert_string(players_for_this_song)
                     polly_respone = generate_polly_audio_file(text_alert_string)
                     filename = f"{song_id}-{"-".join(players_for_this_song)}.mp3"
-                    write_polly_audio_file(polly_respone, filename)
+                    output_file_path = write_combined_audio_file(polly_respone, filename)
 
                     # Pause the current track
                     await client.pause_playback()
                     await publish_to_queue(event={
                             "type": "contract_song",
                             "session_id": session_id,
-                            "audio_url": f"http://localhost:8000/contract-song-audio/{filename}",
+                            "audio_url": f"http://localhost:8000/{output_file_path}",
                             "player_names": players_for_this_song,
                             "song_id": song_id,
                             "song_name": song_name
