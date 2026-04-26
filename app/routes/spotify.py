@@ -240,12 +240,6 @@ async def start_contract_song_service(session_id: int):
     return {"started": False, "reason": "already running"}
 
 
-@spotify_router.post("/session/{session_id}/stop-contract-song-service")
-async def stop_contract_song_service(session_id):
-    global MONITOR_RUNNING
-    MONITOR_RUNNING = False
-    return {"stopping": True}
-
 @spotify_router.get("/playlists", response_model=GetPlaylists)
 async def get_playlists():
 
