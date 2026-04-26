@@ -12,7 +12,7 @@ from app.database.models import ContractSongSession
 from app.schemas.session import ReadSession, CreateSession
 from app.schemas.player import ReadPlayer
 from app.routes.helpers import parse_str_to_datetime, get_new_access_token_expiration
-from app.services.contract_song_events import contract_song_queue
+from app.services.contract_song_events import contract_song_queue, publish_to_queue
 
 session_router = APIRouter(prefix="/api/v1/session", tags=["Session"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
@@ -31,6 +31,23 @@ async def yield_contract_song_events():
             event=event["type"],
             data=event,
         )
+
+@session_router.post("/contract-song-events/test")
+async def send_test_event():
+
+    event = {
+        "type": "contract_song",
+        "session_id": "test_session_id",
+        "audio_url": f"http://localhost:8000/contract-song-audio-out/test-Nick Killeen.mp3",
+        "player_names": ["Nick Killeen"],
+        "song_id": "test_song_id",
+        "song_name": "test_song_name"
+    }
+    await publish_to_queue(event)
+    return {
+        "published_test_event": True
+    }
+
 
 @session_router.get("/{session_id}", response_model=ReadSession)
 async def get_session(session_id: int, db: Session = Depends(get_db)):
