@@ -17,8 +17,8 @@ from app.schemas.spotify import GetPlaylists
 
 from app.routes.helpers import get_new_access_token_expiration
 
-from app.services.contract_song_events import publish_to_queue, contract_song_queue
-
+from app.services.contract_song_events import publish_to_queue
+from app.services.aws_polly import generate_polly_audio_file, write_polly_audio_file
 
 spotify_router = APIRouter(prefix="/api/v1/spotify", tags=["Spotify"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
@@ -118,11 +118,36 @@ def calculate_next_polling_interval(player_progress_ms, song_length_ms) -> int:
     ms_remaining = song_length_ms - player_progress_ms
     return (ms_remaining + 1000) / 1000
 
+def get_alert_string(contract_song_player_list: list) -> str:
+    """
+    Takes in a list of players for a given song
+    Determines the appropriate string for use with AWS Polly
+    """
+
+    base_string = "ALERT, WE HAVE A NEW CONTRACT SONG FOR:"
+
+    if len(contract_song_player_list) == 1:
+        return f"{base_string} {contract_song_player_list[0]}, DRINK UP BITCH!"
+    elif len(contract_song_player_list) == 2:
+        return f"{base_string} {contract_song_player_list[0]} AND {contract_song_player_list[1]}, DRINK UP BITCHES!"
+    else:
+        list_length = len(contract_song_player_list)
+        current_nane_num_itr = 1
+        sub_string = ""
+        for name in contract_song_player_list:
+            if current_nane_num_itr != list_length:
+                sub_string += f"{name}, "
+            else:
+                sub_string += f"AND {name}"
+            current_nane_num_itr += 1
+        return f"{base_string} {sub_string}, DRINK UP BITCHES!"
+
+
 # GLOBALS DEFINED FOR THE POLLING PROCESS
 MONITOR_TASK = None
 MONITOR_RUNNING = False
 
-async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max_iterations: int | None = None):
+async def spotify_poll_loop(session_id: int, polling_interval: float = 3.0, max_iterations: int | None = None):
 
     # Globals
     global MONITOR_TASK, MONITOR_RUNNING
@@ -146,9 +171,9 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max
         while MONITOR_RUNNING:
             current_track_data = await client.get_currently_playing_track()
             if current_track_data:
-                player_progress_ms = current_track_data.get("progress_ms")
-                song_length_ms = current_track_data.get("item").get("duration_ms")
-                calculated_sleep_time = calculate_next_polling_interval(player_progress_ms, song_length_ms)
+                # player_progress_ms = current_track_data.get("progress_ms")
+                # song_length_ms = current_track_data.get("item").get("duration_ms")
+                # calculated_sleep_time = calculate_next_polling_interval(player_progress_ms, song_length_ms)
 
                 song_id = current_track_data.get("item").get("id")
                 song_name = current_track_data.get("item").get("name")
@@ -158,12 +183,18 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max
                 if len(players_for_this_song) > 0:
                     logger.info(f"WE HAVE A CONTRACT SONG MATCH FOR {', '.join(players_for_this_song)}")
 
+                    # Audio File Generation:
+                    text_alert_string = get_alert_string(players_for_this_song)
+                    polly_respone = generate_polly_audio_file(text_alert_string)
+                    filename = f"{song_id}-{"-".join(players_for_this_song)}.mp3"
+                    write_polly_audio_file(polly_respone, filename)
+
                     # Pause the current track
                     await client.pause_playback()
                     await publish_to_queue(event={
                             "type": "contract_song",
                             "session_id": session_id,
-                            "audio_url": "http://localhost:8000/contract-song-audio/test-song-1-Nick.mp3",
+                            "audio_url": f"http://localhost:8000/contract-song-audio/{filename}",
                             "player_names": players_for_this_song,
                             "song_id": song_id,
                             "song_name": song_name
@@ -179,8 +210,8 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 10.0, max
                     MONITOR_RUNNING = False
                     break
 
-                logger.info(f"Sleeping for {calculated_sleep_time} seconds")
-                await asyncio.sleep(calculated_sleep_time)
+                logger.info(f"Sleeping for {polling_interval} seconds")
+                await asyncio.sleep(polling_interval)
 
             else:
                 await asyncio.sleep(polling_interval)
