@@ -81,6 +81,16 @@ def refresh_access_token(expired_tokens: SpotifyTokenSnapshot) -> SpotifyTokenSn
             refresh_token=expired_tokens.refresh_token,
         )
 
+###
+### START OF ROUTES:
+###
+
+@spotify_router.post("/session/stop-contract-song-service")
+async def stop_contract_song_service():
+    global MONITOR_RUNNING
+    MONITOR_RUNNING = False
+    return {"stopping": True}
+
 def get_players_for_currently_playing_song(current_session_id: int, current_song_id: str, current_song_name: str) -> list[str]:
     with SessionLocal() as db:
         stmt = select(ContractSongSession).where(ContractSongSession.id == current_session_id)
