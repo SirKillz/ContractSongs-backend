@@ -22,7 +22,7 @@ async def get_api_keys(db: Session = Depends(get_db)):
 
     logger.info(f"Received Request at GET: /api/v1/api-keys")
 
-    stmt = select(SpotifyApiTokens).where(SpotifyApiTokens.id == 1)
+    stmt = select(SpotifyApiTokens)
     result = db.execute(stmt).scalar_one_or_none()
 
     if not result:
