@@ -14,7 +14,7 @@ from app.schemas.player import ReadPlayer
 from app.routes.helpers import parse_str_to_datetime, get_new_access_token_expiration
 from app.services.contract_song_events import contract_song_queue, publish_to_queue
 
-session_router = APIRouter(prefix="/api/v1/session", tags=["Session"])
+session_router = APIRouter(prefix="/api/v1/sessions", tags=["Session"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
 
 @session_router.get("/contract-song-events", response_class=EventSourceResponse)
@@ -49,10 +49,20 @@ async def send_test_event():
     }
 
 
+@session_router.get("", response_model=list[ReadSession])
+async def get_sessions(db: Session = Depends(get_db)):
+   logger.info(f"Received Request at GET: /api/v1/sessions")
+
+   stmt = select(ContractSongSession)
+   contract_song_sessions = db.execute(stmt).scalars().all()
+
+   return contract_song_sessions
+
+
 @session_router.get("/{session_id}", response_model=ReadSession)
 async def get_session(session_id: int, db: Session = Depends(get_db)):
 
-    logger.info(f"Received Request at GET: /api/v1/session{session_id}")
+    logger.info(f"Received Request at GET: /api/v1/sessions{session_id}")
 
     stmt = select(ContractSongSession).where(ContractSongSession.id == session_id)
     result = db.execute(stmt).scalar_one_or_none()
@@ -62,10 +72,11 @@ async def get_session(session_id: int, db: Session = Depends(get_db)):
 
     return result
 
+ 
 @session_router.get("/{session_id}/players", response_model=list[ReadPlayer])
 async def get_session_players(session_id: int, db: Session = Depends(get_db)):
 
-    logger.info(f"Received Request at GET: /api/v1/session{session_id}/players")
+    logger.info(f"Received Request at GET: /api/v1/sessions{session_id}/players")
 
     stmt = select(ContractSongSession).where(ContractSongSession.id == session_id)
     contract_song_session = db.execute(stmt).scalar_one_or_none()
@@ -82,7 +93,7 @@ async def create_session(
     session_data: CreateSession,
     db: Session = Depends(get_db), 
 ):
-    logger.info(f"Received Request at POST: /api/v1/session")
+    logger.info(f"Received Request at POST: /api/v1/sessions")
 
     # Dump Payload
     payload = session_data.model_dump()
