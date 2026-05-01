@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.player import CreatePlayer
+
 class ReadSession(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -14,4 +16,5 @@ class CreateSession(BaseModel):
     
     playlist_id: str
     playlist_name: str
+    players: list[CreatePlayer] = Field(default_factory=list)
     # created_at will be handled within the route

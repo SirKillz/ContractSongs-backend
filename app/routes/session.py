@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database.session_factory import get_db
-from app.database.models import ContractSongSession
+from app.database.models import ContractSongSession, Player
 
 from app.schemas.session import ReadSession, CreateSession
 from app.schemas.player import ReadPlayer
@@ -98,9 +98,27 @@ async def create_session(
     # Dump Payload
     payload = session_data.model_dump()
 
-    contract_song_session = ContractSongSession(**payload)
+    # Create the session first
+    contract_song_session = ContractSongSession(
+        playlist_id=payload.get("playlist_id"),
+        playlist_name=payload.get("playlist_name")
+    )
     db.add(contract_song_session)
     db.commit()
     db.refresh(contract_song_session)
+
+    # Create the Players Next
+    players_to_add = []
+    for player in payload.get("players", []):
+        session_player = Player(
+            session_id=contract_song_session.id,
+            name=player.get("name"),
+            songs=player.get("songs")
+        )
+        players_to_add.append(session_player)
+    if len(players_to_add) > 0:
+        db.add_all(players_to_add)
+        db.commit()
+
 
     return contract_song_session
