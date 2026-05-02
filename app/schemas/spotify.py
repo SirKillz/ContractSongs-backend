@@ -15,3 +15,6 @@ class GetPlayListSongs(BaseModel):
     id: str
     song_count: int
     songs: list[SpotifySong] = field(default_factory=list)
+
+class ContractSongServiceStatus(BaseModel):
+    running: bool

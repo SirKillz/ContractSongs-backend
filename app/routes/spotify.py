@@ -13,7 +13,7 @@ from app.database.models import SpotifyApiTokens, ContractSongSession
 from app.services.spotify.client import SpotifyClient
 from app.services.spotify.types import SpotifyTokenSnapshot, SpotifyPlaylist, SpotifySong
 from app.services.spotify.session import ApiSession, request_token_via_refresh
-from app.schemas.spotify import GetPlaylists
+from app.schemas.spotify import GetPlaylists, ContractSongServiceStatus
 
 from app.routes.helpers import get_new_access_token_expiration
 
@@ -84,74 +84,6 @@ def refresh_access_token(expired_tokens: SpotifyTokenSnapshot) -> SpotifyTokenSn
 ###
 ### START OF ROUTES:
 ###
-
-@spotify_router.post("/session/stop-contract-song-service")
-async def stop_contract_song_service():
-    global MONITOR_RUNNING
-    MONITOR_RUNNING = False
-    return {"stopping": True}
-
-def get_players_for_currently_playing_song(current_session_id: int, current_song_id: str, current_song_name: str) -> list[str]:
-    with SessionLocal() as db:
-        stmt = select(ContractSongSession).where(ContractSongSession.id == current_session_id)
-        contract_song_session = db.execute(stmt).scalar_one_or_none()
-        if not contract_song_session:
-            return # to do figure out how to handle this
-        
-        players_for_this_song = []
-        for player in contract_song_session.players:
-            updated_songs = []
-            for song in player.songs:
-                # Current songs needs to NOT have already been contracted AND match the current song ID or Name
-                if (
-                    song.get("been_contracted") == False
-                    and (song.get("id") == current_song_id or song.get("name") == current_song_name)
-                ):
-                    player.contract_count += 1
-                    if player.name not in players_for_this_song:
-                        players_for_this_song.append(player.name)
-                    
-                    # Update to indicate that the song has now been contracted so it gets skipped next time
-                    updated_songs.append({
-                        "id": song.get("id"),
-                        "name": song.get("name"),
-                        "artist": song.get("artist"),
-                        "been_contracted": True # change later to prevent loops
-                    })
-                else:
-                    updated_songs.append(song)
-            player.songs = updated_songs
-        db.commit()
-        return players_for_this_song
-
-def calculate_next_polling_interval(player_progress_ms, song_length_ms) -> int:
-    ms_remaining = song_length_ms - player_progress_ms
-    return (ms_remaining + 1000) / 1000
-
-def get_alert_string(contract_song_player_list: list) -> str:
-    """
-    Takes in a list of players for a given song
-    Determines the appropriate string for use with AWS Polly
-    """
-
-    base_string = "ALERT, WE HAVE A NEW CONTRACT SONG FOR:"
-
-    if len(contract_song_player_list) == 1:
-        return f"{base_string} {contract_song_player_list[0]}, DRINK UP BITCH!"
-    elif len(contract_song_player_list) == 2:
-        return f"{base_string} {contract_song_player_list[0]} AND {contract_song_player_list[1]}, DRINK UP BITCHES!"
-    else:
-        list_length = len(contract_song_player_list)
-        current_nane_num_itr = 1
-        sub_string = ""
-        for name in contract_song_player_list:
-            if current_nane_num_itr != list_length:
-                sub_string += f"{name}, "
-            else:
-                sub_string += f"AND {name}"
-            current_nane_num_itr += 1
-        return f"{base_string} {sub_string}, DRINK UP BITCHES!"
-
 
 # GLOBALS DEFINED FOR THE POLLING PROCESS
 MONITOR_TASK = None
@@ -230,14 +162,92 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 3.0, max_
         MONITOR_RUNNING = False
         MONITOR_TASK = None
 
+@spotify_router.get("/session/contract-song-service/status", response_model=ContractSongServiceStatus)
+async def get_contract_song_service_polling_status(): 
+    global MONITOR_RUNNING
+    if MONITOR_RUNNING:
+        return {"running": True}
+    
+    return {"running": False}
+    
 
-@spotify_router.post("/session/{session_id}/start-contract-song-service")
+@spotify_router.post("/session/stop-contract-song-service", response_model=ContractSongServiceStatus)
+async def stop_contract_song_service():
+    global MONITOR_RUNNING
+    MONITOR_RUNNING = False
+    return {"running": False}
+
+def get_players_for_currently_playing_song(current_session_id: int, current_song_id: str, current_song_name: str) -> list[str]:
+    with SessionLocal() as db:
+        stmt = select(ContractSongSession).where(ContractSongSession.id == current_session_id)
+        contract_song_session = db.execute(stmt).scalar_one_or_none()
+        if not contract_song_session:
+            return # to do figure out how to handle this
+        
+        players_for_this_song = []
+        for player in contract_song_session.players:
+            updated_songs = []
+            for song in player.songs:
+                # Current songs needs to NOT have already been contracted AND match the current song ID or Name
+                if (
+                    song.get("been_contracted") == False
+                    and (song.get("id") == current_song_id or song.get("name") == current_song_name)
+                ):
+                    player.contract_count += 1
+                    if player.name not in players_for_this_song:
+                        players_for_this_song.append(player.name)
+                    
+                    # Update to indicate that the song has now been contracted so it gets skipped next time
+                    updated_songs.append({
+                        "id": song.get("id"),
+                        "name": song.get("name"),
+                        "artist": song.get("artist"),
+                        "been_contracted": True # change later to prevent loops
+                    })
+                else:
+                    updated_songs.append(song)
+            player.songs = updated_songs
+        db.commit()
+        return players_for_this_song
+
+def calculate_next_polling_interval(player_progress_ms, song_length_ms) -> int:
+    ms_remaining = song_length_ms - player_progress_ms
+    return (ms_remaining + 1000) / 1000
+
+def get_alert_string(contract_song_player_list: list) -> str:
+    """
+    Takes in a list of players for a given song
+    Determines the appropriate string for use with AWS Polly
+    """
+
+    base_string = "ALERT, WE HAVE A NEW CONTRACT SONG FOR:"
+
+    if len(contract_song_player_list) == 1:
+        return f"{base_string} {contract_song_player_list[0]}, DRINK UP BITCH!"
+    elif len(contract_song_player_list) == 2:
+        return f"{base_string} {contract_song_player_list[0]} AND {contract_song_player_list[1]}, DRINK UP BITCHES!"
+    else:
+        list_length = len(contract_song_player_list)
+        current_nane_num_itr = 1
+        sub_string = ""
+        for name in contract_song_player_list:
+            if current_nane_num_itr != list_length:
+                sub_string += f"{name}, "
+            else:
+                sub_string += f"AND {name}"
+            current_nane_num_itr += 1
+        return f"{base_string} {sub_string}, DRINK UP BITCHES!"
+
+
+
+
+@spotify_router.post("/session/{session_id}/start-contract-song-service", response_model=ContractSongServiceStatus)
 async def start_contract_song_service(session_id: int):
     global MONITOR_TASK
     if MONITOR_TASK is None:
         MONITOR_TASK = asyncio.create_task(spotify_poll_loop(session_id))
-        return {"started": True}
-    return {"started": False, "reason": "already running"}
+        return {"running": True}
+    return {"running": True}
 
 
 @spotify_router.get("/playlists", response_model=GetPlaylists)
