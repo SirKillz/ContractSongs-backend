@@ -24,6 +24,9 @@ from app.database.session_factory import Base
 
 from app.services.spotify.types import SpotifySong
 
+if TYPE_CHECKING:
+    from app.database.models import ContractSongSession
+
 
 class Player(Base):
     __tablename__ = "players"
@@ -33,3 +36,4 @@ class Player(Base):
     name: Mapped[str] = mapped_column(nullable=False)
     songs: Mapped[list[SpotifySong]] = mapped_column(JSON, default=field(default_factory=list))
     contract_count: Mapped[int] = mapped_column(default=0)
+    session: Mapped['ContractSongSession'] = relationship("ContractSongSession", back_populates="players")

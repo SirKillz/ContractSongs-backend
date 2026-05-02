@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from app.database.session_factory import get_db
 from app.database.models import ContractSongSession, Player
 
-from app.schemas.session import ReadSession, CreateSession, DeleteSession
-from app.schemas.player import ReadPlayer
+from app.schemas.session import ReadSession, CreateSession, DeleteSession, UpdateSession
+from app.schemas.player import ReadPlayer, CreatePlayer
 from app.routes.helpers import parse_str_to_datetime, get_new_access_token_expiration
 from app.services.contract_song_events import contract_song_queue, publish_to_queue
 
@@ -31,6 +31,7 @@ async def yield_contract_song_events():
             event=event["type"],
             data=event,
         )
+
 
 @session_router.post("/contract-song-events/test")
 async def send_test_event():
@@ -72,6 +73,7 @@ async def get_session(session_id: int, db: Session = Depends(get_db)):
 
     return result
 
+
 @session_router.delete("/{session_id}", response_model=DeleteSession) 
 async def delete_session(session_id: int, db: Session = Depends(get_db)):
     logger.info(f"Received Request at DELETE: /api/v1/sessions{session_id}")
@@ -93,6 +95,70 @@ async def delete_session(session_id: int, db: Session = Depends(get_db)):
         "deleted": True
     }
 
+
+def resolve_session_players(
+        session_id: int,
+        existing_player_data: list[Player], 
+        incoming_player_data: list[CreatePlayer] | list[ReadPlayer], 
+        db: Session
+    ) -> list[Player]:
+    """
+    Handles creating new players + songs for an existing session
+    Handles removing existing players from an existing session
+    Handles adding new songs to players from an existing session
+    Handles removing existing songs from an existing session
+    """
+
+    resolved_players = []
+    existing_players = {player.id: player for player in existing_player_data}
+
+    for incoming_player_item in incoming_player_data:
+        player_id = incoming_player_item.get("id", None)
+
+        # Existing Player
+        if player_id:
+            existing_player = existing_players.get(player_id)
+            existing_player.songs = incoming_player_item.get("songs")
+            resolved_players.append(existing_player)
+        else:
+            new_player = Player(
+                session_id=session_id,
+                name=incoming_player_item.get("name"),
+                songs=incoming_player_item.get("songs"),
+                been_contracted=False
+            )
+            resolved_players.append(new_player)
+
+    return resolved_players
+
+
+@session_router.put("/session/{session_id}", response_model=ReadSession)
+async def update_session_players(session_id: int, session_data: UpdateSession, db: Session = Depends(get_db)):
+
+    logger.info("Received Request at PUT: /api/v1/sessions")
+    payload = session_data.model_dump()
+    incoming_player_data = payload.get("players", [])
+
+    stmt = select(ContractSongSession).where(ContractSongSession.id == session_id)
+    contract_song_session = db.execute(stmt).scalar_one_or_none()
+
+    if not contract_song_session:
+        raise HTTPException(status_code=404, detail=f"Session with id: {session_id} not found")
+    
+    # Helper to update players:
+    resolved_players = resolve_session_players(session_id, contract_song_session.players, incoming_player_data, db)
+
+    contract_song_session.players = resolved_players
+    db.commit()
+    db.refresh(contract_song_session)
+
+    return contract_song_session
+    
+
+
+
+
+
 @session_router.get("/{session_id}/players", response_model=list[ReadPlayer])
 async def get_session_players(session_id: int, db: Session = Depends(get_db)):
 
@@ -106,6 +172,7 @@ async def get_session_players(session_id: int, db: Session = Depends(get_db)):
 
     players = contract_song_session.players
     return players
+
 
 @session_router.post("", response_model=ReadSession)
 async def create_session(

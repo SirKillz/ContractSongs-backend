@@ -22,3 +22,6 @@ class CreateSession(BaseModel):
 
 class DeleteSession(BaseModel):
     deleted: bool
+
+class UpdateSession(BaseModel):
+    players: list[CreatePlayer] | list[ReadPlayer]

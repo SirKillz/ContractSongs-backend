@@ -34,4 +34,4 @@ class ContractSongSession(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
-    players: Mapped[list[Player]] = relationship(Player)
+    players: Mapped[list["Player"]] = relationship("Player", back_populates="session", cascade="all, delete-orphan")
