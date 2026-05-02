@@ -19,3 +19,6 @@ class CreateSession(BaseModel):
     playlist_name: str
     players: list[CreatePlayer] = Field(default_factory=list)
     # created_at will be handled within the route
+
+class DeleteSession(BaseModel):
+    deleted: bool
