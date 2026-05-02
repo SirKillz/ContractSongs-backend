@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.player import CreatePlayer
+from app.schemas.player import CreatePlayer, ReadPlayer
 
 class ReadSession(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -11,6 +11,7 @@ class ReadSession(BaseModel):
     playlist_id: str
     playlist_name: str
     created_at: datetime
+    players: list[ReadPlayer]
 
 class CreateSession(BaseModel):
     
