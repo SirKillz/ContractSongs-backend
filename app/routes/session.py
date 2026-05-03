@@ -132,7 +132,7 @@ def resolve_session_players(
     return resolved_players
 
 
-@session_router.put("/session/{session_id}", response_model=ReadSession)
+@session_router.put("/{session_id}", response_model=ReadSession)
 async def update_session_players(session_id: int, session_data: UpdateSession, db: Session = Depends(get_db)):
 
     logger.info("Received Request at PUT: /api/v1/sessions")
