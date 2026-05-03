@@ -125,7 +125,7 @@ def resolve_session_players(
                 session_id=session_id,
                 name=incoming_player_item.get("name"),
                 songs=incoming_player_item.get("songs"),
-                been_contracted=False
+                contract_count=0
             )
             resolved_players.append(new_player)
 
