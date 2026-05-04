@@ -208,3 +208,25 @@ async def create_session(
 
 
     return contract_song_session
+
+
+@session_router.put("/{session_id}/players/reset-contract-status", response_model=ReadSession)
+async def reset_player_contract_song_status(session_id: int, db: Session = Depends(get_db)):
+
+    logger.info(f"Received Request at PUT: /api/v1/sessions{session_id}/players/reset-contract-status")
+
+    stmt = select(ContractSongSession).where(ContractSongSession.id == session_id)
+    contract_song_session = db.execute(stmt).scalar_one_or_none()
+
+    if not contract_song_session:
+        raise HTTPException(status_code=404, detail=f"Session with id: {session_id} not found")
+    
+    for player in contract_song_session.players:
+      player.songs = [
+          {**song, "been_contracted": False}
+          for song in (player.songs or [])
+      ]
+    
+    db.commit()
+    db.refresh(contract_song_session)
+    return contract_song_session
