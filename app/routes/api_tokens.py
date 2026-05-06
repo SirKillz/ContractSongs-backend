@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Security, Depends, HTTPException
-from sqlalchemy import select, text
+from sqlalchemy import select, text, delete
 from sqlalchemy.orm import Session
 
 from app.database.session_factory import get_db
@@ -66,7 +66,6 @@ async def get_spotify_tokens_with_code(code: str):
 
 
 
-
 @api_key_router.post("", response_model=ReadSpotifyApiKeys)
 async def create_api_keys(
     api_key_data: CreateSpotifyApiKeys,
@@ -96,3 +95,20 @@ async def create_api_keys(
     db.refresh(spotify_api_token_pair)
 
     return spotify_api_token_pair
+
+
+
+@api_key_router.delete("")
+async def delete_api_keys(db: Session = Depends(get_db)):
+    
+    logger.info(f"Received Request at DELETE: /api/v1/api-keys")
+
+    stmt = delete(SpotifyApiTokens)
+    db.execute(stmt)
+
+    db.commit()
+
+    return {}
+
+
+
