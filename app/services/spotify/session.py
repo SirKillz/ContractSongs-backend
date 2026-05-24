@@ -18,6 +18,26 @@ class SpotifyTokenRequestError(Exception):
         self.detail = detail
         self.status_code = status_code
 
+
+class SpotifyApiRequestError(RuntimeError):
+    def __init__(
+        self,
+        method: str,
+        url: str,
+        status_code: int,
+        reason_phrase: str,
+        response_body: Any,
+    ) -> None:
+        self.method = method.upper()
+        self.url = url
+        self.status_code = status_code
+        self.reason_phrase = reason_phrase
+        self.response_body = response_body
+        super().__init__(
+            f"API request failed: {self.method} {self.url} "
+            f"-> {self.status_code} {self.reason_phrase}. Response: {self.response_body}"
+        )
+
 def _get_b64_encoded_auth_string():
     if not CLIENT_ID or not CLIENT_SECRET:
         raise SpotifyTokenRequestError(
@@ -148,6 +168,9 @@ class ApiSession:
             headers.update(default_headers)
         self.session = httpx.AsyncClient(headers=headers, timeout=self.timeout)
 
+    def set_access_token(self, access_token: str) -> None:
+        self.session.headers.update({"Authorization": f"Bearer {access_token}"})
+
     async def close(self) -> None:
         await self.session.aclose()
 
@@ -185,9 +208,12 @@ class ApiSession:
             except ValueError:
                 body = resp.text
 
-            raise RuntimeError(
-                f"API request failed: {method.upper()} {url} "
-                f"-> {resp.status_code} {resp.reason_phrase}. Response: {body}"
+            raise SpotifyApiRequestError(
+                method=method,
+                url=url,
+                status_code=resp.status_code,
+                reason_phrase=resp.reason_phrase,
+                response_body=body,
             )
 
         # No Content

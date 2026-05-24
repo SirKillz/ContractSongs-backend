@@ -1,7 +1,8 @@
 import os
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from typing import Awaitable, Callable, TypeVar
 
 from fastapi import APIRouter
 from sqlalchemy import select, update
@@ -12,7 +13,7 @@ from app.database.models import SpotifyApiTokens, ContractSongSession
 
 from app.services.spotify.client import SpotifyClient
 from app.services.spotify.types import SpotifyTokenSnapshot, SpotifyPlaylist, SpotifySong
-from app.services.spotify.session import ApiSession, request_token_via_refresh
+from app.services.spotify.session import ApiSession, SpotifyApiRequestError, request_token_via_refresh
 from app.schemas.spotify import GetPlaylists, ContractSongServiceStatus
 
 from app.routes.helpers import get_new_access_token_expiration
@@ -22,6 +23,8 @@ from app.services.aws_polly import generate_polly_audio_file, write_combined_aud
 
 spotify_router = APIRouter(prefix="/api/v1/spotify", tags=["Spotify"])
 logger = logging.getLogger("app_logger") # Configure inside app/__main__.py
+ACCESS_TOKEN_REFRESH_BUFFER_SECONDS = 60
+SpotifyCallResult = TypeVar("SpotifyCallResult")
 
 # Helper function to return Spotify API tokens stored in DB
 def get_spotify_api_tokens_from_db() -> SpotifyTokenSnapshot:
@@ -46,11 +49,12 @@ def access_token_expired(expires_timestamp: datetime) -> bool:
     Returns False if NOT expired
     """
 
+    if expires_timestamp.tzinfo is None:
+        expires_timestamp = expires_timestamp.replace(tzinfo=timezone.utc)
+
     now = datetime.now(timezone.utc)
-    if now > expires_timestamp:
-        return True
-    
-    return False
+    refresh_at = expires_timestamp - timedelta(seconds=ACCESS_TOKEN_REFRESH_BUFFER_SECONDS)
+    return now >= refresh_at
 
 # Helper function to request new access token from spotify and update stored DB values
 def refresh_access_token(expired_tokens: SpotifyTokenSnapshot) -> SpotifyTokenSnapshot:
@@ -63,23 +67,58 @@ def refresh_access_token(expired_tokens: SpotifyTokenSnapshot) -> SpotifyTokenSn
     with SessionLocal() as db:
 
         refreshed_tokens = request_token_via_refresh(expired_tokens.refresh_token)
-        new_expiration_timestamp = get_new_access_token_expiration(3600)
+        refreshed_access_token = refreshed_tokens.get("access_token")
+        if not refreshed_access_token:
+            raise RuntimeError("Spotify refresh response is missing access_token")
+
+        refreshed_refresh_token = refreshed_tokens.get("refresh_token") or expired_tokens.refresh_token
+        expires_in = refreshed_tokens.get("expires_in", 3600)
+        new_expiration_timestamp = get_new_access_token_expiration(expires_in)
 
         stmt = (
             update(SpotifyApiTokens)
             .where(SpotifyApiTokens.id == 1)
             .values(
-                access_token=refreshed_tokens.get("access_token"),
-                access_token_expires_at=new_expiration_timestamp
+                access_token=refreshed_access_token,
+                access_token_expires_at=new_expiration_timestamp,
+                refresh_token=refreshed_refresh_token,
             )
         )
         db.execute(stmt)
         db.commit()
         return SpotifyTokenSnapshot(
-            access_token=refreshed_tokens.get("access_token"),
+            access_token=refreshed_access_token,
             access_token_expires_at=new_expiration_timestamp,
-            refresh_token=expired_tokens.refresh_token,
+            refresh_token=refreshed_refresh_token,
         )
+
+def refresh_spotify_session_access_token(
+    api_session: ApiSession,
+    current_tokens: SpotifyTokenSnapshot,
+) -> SpotifyTokenSnapshot:
+    refreshed_tokens = refresh_access_token(current_tokens)
+    api_session.set_access_token(refreshed_tokens.access_token)
+    return refreshed_tokens
+
+async def call_spotify_with_token_refresh(
+    api_session: ApiSession,
+    current_tokens: SpotifyTokenSnapshot,
+    spotify_call: Callable[[], Awaitable[SpotifyCallResult]],
+    operation_name: str,
+) -> tuple[SpotifyCallResult, SpotifyTokenSnapshot]:
+    if access_token_expired(current_tokens.access_token_expires_at):
+        logger.info("Refreshing Spotify access token before %s", operation_name)
+        current_tokens = refresh_spotify_session_access_token(api_session, current_tokens)
+
+    try:
+        return await spotify_call(), current_tokens
+    except SpotifyApiRequestError as exc:
+        if exc.status_code != 401:
+            raise
+
+        logger.info("Spotify request %s returned 401; refreshing access token and retrying once", operation_name)
+        current_tokens = refresh_spotify_session_access_token(api_session, get_spotify_api_tokens_from_db())
+        return await spotify_call(), current_tokens
 
 ###
 ### START OF ROUTES:
@@ -111,7 +150,12 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 3.0, max_
     iteration_count = 0
     try:
         while MONITOR_RUNNING:
-            current_track_data = await client.get_currently_playing_track()
+            current_track_data, stored_spotify_tokens = await call_spotify_with_token_refresh(
+                session,
+                stored_spotify_tokens,
+                client.get_currently_playing_track,
+                "get_currently_playing_track",
+            )
             if current_track_data:
                 # player_progress_ms = current_track_data.get("progress_ms")
                 # song_length_ms = current_track_data.get("item").get("duration_ms")
@@ -132,7 +176,12 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 3.0, max_
                     output_file_path = write_combined_audio_file(polly_respone, filename)
 
                     # Pause the current track
-                    await client.pause_playback()
+                    _, stored_spotify_tokens = await call_spotify_with_token_refresh(
+                        session,
+                        stored_spotify_tokens,
+                        client.pause_playback,
+                        "pause_playback",
+                    )
                     await publish_to_queue(event={
                             "type": "contract_song",
                             "session_id": session_id,
@@ -143,7 +192,12 @@ async def spotify_poll_loop(session_id: int, polling_interval: float = 3.0, max_
                         }
                     )
                     await asyncio.sleep(8.5)
-                    await client.resume_playback()
+                    _, stored_spotify_tokens = await call_spotify_with_token_refresh(
+                        session,
+                        stored_spotify_tokens,
+                        client.resume_playback,
+                        "resume_playback",
+                    )
                 else:
                     logger.info("No matching players")
 
