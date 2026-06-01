@@ -11,6 +11,7 @@ from pydub import AudioSegment
 INPUT_AUDIO_DIR = Path("contract-song-audio-in")
 OUTPUT_AUDIO_DIR = Path("contract-song-audio-out")
 ALERT_SOUND_PATH = INPUT_AUDIO_DIR / "smash_challenger_alert.mp3"
+COMBINED_AUDIO_GAIN_DB = 12.0
 
 # Decode once when the module loads
 ALERT_SOUND_AUDIO = AudioSegment.from_file(
@@ -62,7 +63,7 @@ def write_combined_audio_file(polly_response: PollyResponse, output_filename: st
         format="mp3"
     )
 
-    combined_audio = ALERT_SOUND_AUDIO + polly_audio
+    combined_audio = (ALERT_SOUND_AUDIO + polly_audio).apply_gain(COMBINED_AUDIO_GAIN_DB)
 
     combined_audio.export(
         output_path,
